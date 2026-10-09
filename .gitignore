@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+data/raw_cache.db
+data/chroma_db/
+data/models/
+data/token.json
+credentials.json
+.streamlit/secrets.toml
+nul

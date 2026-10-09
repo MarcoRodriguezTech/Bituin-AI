@@ -1,0 +1,17 @@
+# NOTE: versions below are install-time floors for Python 3.13.
+# Exact resolved versions are pinned in requirements-lock.txt via pip freeze.
+google-api-python-client>=2.150.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+chromadb>=1.0.0
+ollama>=0.4.0
+faster-whisper>=1.2.0
+sounddevice>=0.4.6
+streamlit>=1.40.0
+sentence-transformers>=3.0.0
+python-dotenv==1.0.1
+requests==2.32.3
+numpy>=2.1.0
+# CUDA-12 runtime DLLs for faster-whisper GPU inference (Windows/Linux)
+nvidia-cublas-cu12; sys_platform != 'darwin'
+nvidia-cudnn-cu12; sys_platform != 'darwin'

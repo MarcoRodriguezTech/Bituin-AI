@@ -1,0 +1,84 @@
+[theme]
+base = "dark"
+# Roundy UI
+baseRadius = "1.25rem"
+buttonRadius = "full"
+showWidgetBorder = true
+linkUnderline = false
+baseFontSize = 15
+headingFontWeights = [800, 800, 700, 700, 600, 600]
+
+# Cute + readable font (self-hosted — works offline)
+font = "Nunito"
+headingFont = "Nunito"
+
+[[theme.fontFaces]]
+family = "Nunito"
+url = "app/static/fonts/Nunito-400.ttf"
+weight = 400
+
+[[theme.fontFaces]]
+family = "Nunito"
+url = "app/static/fonts/Nunito-600.ttf"
+weight = 600
+
+[[theme.fontFaces]]
+family = "Nunito"
+url = "app/static/fonts/Nunito-700.ttf"
+weight = 700
+
+[[theme.fontFaces]]
+family = "Nunito"
+url = "app/static/fonts/Nunito-800.ttf"
+weight = 800
+
+# ---------- Light mode: soft sky blue ----------
+[theme.light]
+primaryColor = "#2563eb"
+backgroundColor = "#eaf3ff"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0f1e3d"
+linkColor = "#1d4ed8"
+codeBackgroundColor = "#dbeafe"
+borderColor = "#b8ccf0"
+redColor = "#dc2626"
+orangeColor = "#d97706"
+yellowColor = "#ca8a04"
+greenColor = "#059669"
+blueColor = "#2563eb"
+violetColor = "#7c3aed"
+grayColor = "#64748b"
+
+[theme.light.sidebar]
+backgroundColor = "#dbeafe"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0f1e3d"
+borderColor = "#b8ccf0"
+primaryColor = "#2563eb"
+
+# ---------- Dark mode: deep night blue ----------
+[theme.dark]
+primaryColor = "#60a5fa"
+backgroundColor = "#0a1428"
+secondaryBackgroundColor = "#14213f"
+textColor = "#dbeafe"
+linkColor = "#93c5fd"
+codeBackgroundColor = "#14213f"
+borderColor = "#1e3a5f"
+redColor = "#f87171"
+orangeColor = "#fbbf24"
+yellowColor = "#fde68a"
+greenColor = "#34d399"
+blueColor = "#7dd3fc"
+violetColor = "#a78bfa"
+grayColor = "#9aa3c7"
+
+[theme.dark.sidebar]
+backgroundColor = "#0d1a35"
+secondaryBackgroundColor = "#14213f"
+textColor = "#dbeafe"
+borderColor = "#1e3a5f"
+primaryColor = "#60a5fa"
+
+[server]
+enableStaticServing = true

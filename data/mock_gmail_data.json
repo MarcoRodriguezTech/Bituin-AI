@@ -1,0 +1,56 @@
+[
+  {
+    "id": "gmail-mock-001",
+    "source": "gmail",
+    "sender": "Prof. Maria Santos <msantos@university.edu>",
+    "subject": "Extended Deadline: Final Project Proposal",
+    "content": "Hi everyone, due to the upcoming hackathon weekend, I am extending the Final Project Proposal deadline to Monday 11:59 PM. Make sure your proposal includes your system architecture diagram and a list of datasets you plan to use.",
+    "timestamp": "2026-10-09T18:30:00Z",
+    "is_read": false
+  },
+  {
+    "id": "gmail-mock-002",
+    "source": "gmail",
+    "sender": "Dr. Jose Ramos <jramos@university.edu>",
+    "subject": "Quiz 4 Moved to Thursday",
+    "content": "Reminder: Quiz 4 covering linear transformations and eigenvalues has been moved from Tuesday to Thursday this week. Review chapters 5.1-5.4. Calculators are allowed but no notes.",
+    "timestamp": "2026-10-09T15:12:00Z",
+    "is_read": false
+  },
+  {
+    "id": "gmail-mock-003",
+    "source": "gmail",
+    "sender": "University Registrar <registrar@university.edu>",
+    "subject": "Enrollment Confirmation for Next Semester",
+    "content": "This is to confirm your enrollment in 18 units for the upcoming semester. Please verify your schedule in the student portal and settle outstanding balances by Oct 20 to avoid holds.",
+    "timestamp": "2026-10-09T08:00:00Z",
+    "is_read": false
+  },
+  {
+    "id": "gmail-mock-004",
+    "source": "gmail",
+    "sender": "Scholarship Office <scholarships@university.edu>",
+    "subject": "Action Required: Scholarship Renewal Documents",
+    "content": "Your merit scholarship renewal requires an updated certificate of registration and a copy of your grades for the current term. Submit via the scholarship portal by Oct 25.",
+    "timestamp": "2026-10-08T14:30:00Z",
+    "is_read": false
+  },
+  {
+    "id": "gmail-mock-005",
+    "source": "gmail",
+    "sender": "University Library <library@university.edu>",
+    "subject": "Overdue Book Notice",
+    "content": "The book 'Pattern Recognition and Machine Learning' checked out under your account is now 3 days overdue. Please return it to the main library to avoid additional fines.",
+    "timestamp": "2026-10-08T10:15:00Z",
+    "is_read": false
+  },
+  {
+    "id": "gmail-mock-006",
+    "source": "gmail",
+    "sender": "Angela Cruz <acruz@student.university.edu>",
+    "subject": "Study group for MATH 210?",
+    "content": "Hey! A few of us are forming a study group for the MATH 210 quiz on Thursday. We're meeting at the library 3rd floor Wednesday 4 PM. Want to join?",
+    "timestamp": "2026-10-09T09:20:00Z",
+    "is_read": false
+  }
+]
