@@ -23,7 +23,8 @@ Mic ──► faster-whisper (CUDA INT8) ──► query text ──► Ollama (
 ## Setup
 
 ```powershell
-cd "C:\Users\JM RODRIGUEZ\Documents\bituin"
+git clone https://github.com/MarcoRodriguezTech/Bituin-AI.git
+cd Bituin-AI
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements-lock.txt   # exact tested versions
@@ -74,3 +75,51 @@ app.py                      Streamlit dashboard
 Academic communications are sensitive student data. Running inference locally
 guarantees zero data leaves the device, eliminates API latency/cost, and keeps
 the product fully usable in campus Wi-Fi dead zones.
+
+## Hackathon submission
+
+**Team:** Jhon Marco Rodriguez (@MarcoRodriguezTech) — solo
+
+### What runs locally
+
+- LLM inference (Ollama `qwen2.5:3b-instruct`) — Q&A, urgency triage, task
+  extraction, daily briefing
+- Speech-to-text (faster-whisper `base.en`, CTranslate2 INT8 on CUDA)
+- Embeddings + vector search (`all-MiniLM-L6-v2`, ChromaDB ONNX runtime)
+- All storage: SQLite cache + ChromaDB index on-disk
+
+### What requires internet
+
+- Gmail API fetch (optional — the app ships with a mock inbox and remains
+  fully functional offline; every AI feature works with Wi-Fi off)
+- One-time model downloads (`ollama pull`, whisper weights, ONNX embedder)
+
+### APIs and cloud services
+
+- Google Gmail API (`gmail.readonly` scope) — inbox ingestion only, no cloud
+  AI inference anywhere in the pipeline
+
+### Models used
+
+| Purpose | Model | Runtime |
+|---|---|---|
+| LLM | Qwen 2.5 3B Instruct | Ollama |
+| STT | faster-whisper base.en | CTranslate2, CUDA INT8 |
+| Embeddings | all-MiniLM-L6-v2 | ChromaDB ONNX |
+
+### Technologies and frameworks
+
+Streamlit · Ollama · ChromaDB · faster-whisper / CTranslate2 ·
+sentence-transformers · google-api-python-client + OAuth · sounddevice ·
+SQLite
+
+### Existing code and assets
+
+- Application code written during the hackathon
+- `data/mock_gmail_data.json` — hand-authored demo inbox (no real email data)
+- Nunito font family (`static/fonts/`) — SIL Open Font License
+- Logo and avatar images in `assets/` — created for this project
+
+### AI development tools
+
+- Devin (Cognition) — AI-assisted development

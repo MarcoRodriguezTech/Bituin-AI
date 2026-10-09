@@ -171,13 +171,9 @@ def online() -> bool:
 
 
 # ---------- UI ----------
-_head_img, _head_txt = st.columns([1, 4], gap="small", vertical_alignment="center")
-with _head_img:
-    if LOGO.exists():
-        st.image(str(LOGO), width="stretch")
-with _head_txt:
-    st.title("Bituin AI")
-    st.caption("Your inbox, understood. Local AI — nothing leaves this machine.")
+if LOGO.exists():
+    st.image(str(LOGO), width=150)
+st.caption("Your inbox, understood. Local AI — nothing leaves this machine.")
 
 db = get_db()
 pipeline = get_pipeline()
@@ -191,7 +187,7 @@ oll_ok = ollama_alive()
 
 # ---------- Sidebar ----------
 with st.sidebar:
-    st.header("Bituin AI", icon=":material/nights_stay:")
+    st.title("Bituin AI", icon=":material/nights_stay:")
     st.caption("Local-first inbox assistant")
     st.divider()
     st.header("Sync", icon=":material/sync:")
@@ -352,25 +348,36 @@ with tab_todo:
         "or modify the email in your inbox."
     )
     if tasks:
-        st.caption(f"{len(db.fetch_tasks(include_done=False))} open · extracted from your email")
-        with st.expander("Remove multiple tasks", icon=":material/delete_sweep:"):
-            remove_ids = st.multiselect(
-                "Select tasks to remove",
-                options=[t["id"] for t in tasks],
-                format_func=lambda i: next(
-                    (t["description"] for t in tasks if t["id"] == i), i
-                )[:80],
-                label_visibility="collapsed",
-                placeholder="Pick tasks…",
+        with st.container(
+            horizontal=True,
+            vertical_alignment="center",
+            horizontal_alignment="distribute",
+        ):
+            st.caption(
+                f"{len(db.fetch_tasks(include_done=False))} open · extracted from your email"
             )
-            if st.button(
-                f"Remove {len(remove_ids)} selected" if remove_ids else "Remove selected",
-                icon=":material/delete:",
-                disabled=not remove_ids,
+            with st.popover(
+                "Remove multiple", icon=":material/delete_sweep:"
             ):
-                for tid in remove_ids:
-                    db.delete_task(tid)
-                st.rerun()
+                remove_ids = st.multiselect(
+                    "Select tasks to remove",
+                    options=[t["id"] for t in tasks],
+                    format_func=lambda i: next(
+                        (t["description"] for t in tasks if t["id"] == i), i
+                    )[:80],
+                    label_visibility="collapsed",
+                    placeholder="Pick tasks…",
+                )
+                if st.button(
+                    f"Remove {len(remove_ids)} selected"
+                    if remove_ids
+                    else "Remove selected",
+                    icon=":material/delete:",
+                    disabled=not remove_ids,
+                ):
+                    for tid in remove_ids:
+                        db.delete_task(tid)
+                    st.rerun()
     else:
         st.caption("No tasks yet — sync your inbox and Bituin extracts the action items.")
     for t in tasks:
@@ -390,24 +397,29 @@ with tab_todo:
                     due += f" :gray[in {days}d]"
             except ValueError:
                 due = f"  :gray[· due {t['due_date']}]"
-        with st.container(horizontal=True, vertical_alignment="center"):
-            checked = st.checkbox(
-                f"{t['description']}{due}",
-                value=t["done"],
-                key=t["id"],
-            )
-            if st.button(
-                "Remove",
-                key=f"del-{t['id']}",
-                icon=":material/close:",
-                type="tertiary",
+        with st.container(border=True):
+            with st.container(
+                horizontal=True,
+                vertical_alignment="center",
+                horizontal_alignment="distribute",
             ):
-                db.delete_task(t["id"])
-                st.rerun()
-            if checked != t["done"]:
-                db.set_task_done(t["id"], checked)
-                st.rerun()
-        st.caption(f":material/mail: {t['subject']} — {t['sender']}")
+                checked = st.checkbox(
+                    f"**{t['description']}**{due}",
+                    value=t["done"],
+                    key=t["id"],
+                )
+                if st.button(
+                    "Remove",
+                    key=f"del-{t['id']}",
+                    icon=":material/close:",
+                    type="tertiary",
+                ):
+                    db.delete_task(t["id"])
+                    st.rerun()
+                if checked != t["done"]:
+                    db.set_task_done(t["id"], checked)
+                    st.rerun()
+            st.caption(f":material/mail: {t['subject']} — {t['sender']}")
 
 # ---------- Inbox ----------
 with tab_inbox:
@@ -430,7 +442,7 @@ with tab_inbox:
 with tab_digest:
     st.caption("One click. A briefing written entirely on this machine.")
     if st.button(
-        "Generate tonight's briefing", icon=":material/wb_twilight:", type="primary"
+        "Generate briefing", icon=":material/summarize:", type="primary"
     ):
         if not an_ok or not oll_ok:
             st.error("Ollama is required for the briefing.")
