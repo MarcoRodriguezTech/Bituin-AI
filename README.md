@@ -38,6 +38,11 @@ ollama pull qwen2.5:3b-instruct
 # -> download JSON and save as credentials.json in this folder.
 ```
 
+Sync scope is configurable via `.env` (see `.env.example`):
+`GMAIL_CATEGORY` (`primary` | `promotions` | `social` | `updates` | `forums` | `all`),
+`GMAIL_MAX_RESULTS` (messages pulled per sync, read or unread), and
+`GMAIL_QUERY` (extra Gmail search filter, e.g. `is:unread`).
+
 ## Run
 
 ```powershell
@@ -72,9 +77,10 @@ app.py                      Streamlit dashboard
 
 ## Why local?
 
-Academic communications are sensitive student data. Running inference locally
-guarantees zero data leaves the device, eliminates API latency/cost, and keeps
-the product fully usable in campus Wi-Fi dead zones.
+Your inbox is one of the most sensitive datasets you own — banking, work,
+medical, and personal correspondence all live there. Running inference locally
+means email content never leaves the device, eliminates per-query API cost and
+latency, and keeps the assistant fully useful with no connection at all.
 
 ## Hackathon submission
 

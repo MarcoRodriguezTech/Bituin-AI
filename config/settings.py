@@ -1,4 +1,4 @@
-"""Central configuration for Project Relay.
+"""Central configuration for Bituin AI.
 
 All values can be overridden via environment variables or a local `.env` file.
 """
@@ -45,3 +45,11 @@ SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", "16000"))
 GMAIL_CREDENTIALS_PATH = os.getenv("GMAIL_CREDENTIALS_PATH", str(BASE_DIR / "credentials.json"))
 GMAIL_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", str(DATA_DIR / "token.json"))
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+# Which inbox tab to sync: primary | promotions | social | updates | forums | all
+GMAIL_CATEGORY = os.getenv("GMAIL_CATEGORY", "primary").strip().lower()
+# How many of the latest matching messages to pull per sync (read or unread)
+GMAIL_MAX_RESULTS = int(os.getenv("GMAIL_MAX_RESULTS", "100"))
+# Extra Gmail search filter on top, e.g. "-from:notifications@github.com"
+# or "is:unread" to go back to unread-only
+# (note: the category: operator does not work in q — use GMAIL_CATEGORY)
+GMAIL_QUERY = os.getenv("GMAIL_QUERY", "").strip()

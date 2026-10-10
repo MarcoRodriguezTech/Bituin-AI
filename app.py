@@ -33,6 +33,18 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebarHeader"] { min-height: 0; padding: 0.25rem 0.5rem; }
+    [data-testid="stSidebarContent"],
+    [data-testid="stSidebarUserContent"] { padding-top: 0; }
+    [data-testid="stMainBlockContainer"] { padding-top: 3rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ---------- Cached resources ----------
 @st.cache_resource
@@ -100,6 +112,42 @@ _FOLLOWUP_RE = re.compile(
     r"can you|could you|thanks|ok(ay)?\b|yes\b|no\b|and |but |also )",
     re.I,
 )
+# Chit-chat / meta questions — answered conversationally with no retrieval
+_CHAT_RE = re.compile(
+    r"^(hi|hello|hey|yo\b|good (morning|afternoon|evening|day)|"
+    r"kamusta|how are you|how'?s it going|who('| a|)re you|"
+    r"(what|who) am i (talking|speaking|chatting) (to|with)\b|"
+    r"what\b.*\b((can|could) (you|u)|(you|u) (can|could))\b|"
+    r"what('?s| is| are| do| does| kind of)\b.*\b(you|u|your|this|it|bituin|app|assistant)\b|"
+    r"tell me about (yourself|you|this|it|bituin|the app)\b|"
+    r"(your|the app'?s|bituin'?s) (name|capabilities|features)|capabilit|"
+    r"(can|could|do|does|will|would|is|are) (you|u|your)\b|"
+    r"how (do|does|can) (you|u|this|it|bituin|the app)\b|"
+    r"(is|are|do|does) (this|it|my|the|your|bituin)\b.*"
+    r"(privat|secur|safe|local|device|cloud|offline|data)|"
+    r"help\b|thank(s| you)|bye|goodbye|"
+    r"ok(ay)?|yes\b|no\b|yeah|nope|nice\b|cool\b|great\b)",
+    re.I,
+)
+# ...but meta-question patterns lose when the message clearly references
+# specific inbox content ("can you find the email from...", "help me check
+# my unread") — those should still retrieve.
+_MAIL_CONTENT_RE = re.compile(
+    r"(about the |from [a-z]|the \w+ (email|mail|message)|"
+    r"(email|mail|message)s? (from|about|saying|regarding|that)|"
+    r"summar|digest|recap|search|find|check|show|list|"
+    r"urgent|deadline|task|to-?do|meeting|schedule|unread|inbox)",
+    re.I,
+)
+
+
+def _is_chat(prompt: str) -> bool:
+    p = prompt.strip()
+    if _MAIL_CONTENT_RE.search(p):
+        return False
+    return bool(_CHAT_RE.match(p)) or (
+        "bituin" in p.lower() and len(p.split()) <= 10
+    )
 
 
 def _records_as_hits(recs: list[dict]) -> list[dict]:
@@ -171,9 +219,14 @@ def online() -> bool:
 
 
 # ---------- UI ----------
-if LOGO.exists():
-    st.image(str(LOGO), width=150)
-st.caption("Your inbox, understood. Local AI — nothing leaves this machine.")
+with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
+    if LOGO.exists():
+        st.image(str(LOGO), width=150)
+    with st.container():
+        st.title("Bituin AI")
+        st.caption(
+            "Your inbox, understood. Local AI — nothing leaves this machine."
+        )
 
 db = get_db()
 pipeline = get_pipeline()
@@ -187,13 +240,10 @@ oll_ok = ollama_alive()
 
 # ---------- Sidebar ----------
 with st.sidebar:
-    st.title("Bituin AI", icon=":material/nights_stay:")
-    st.caption("Local-first inbox assistant")
-    st.divider()
     st.header("Sync", icon=":material/sync:")
     if st.button("Sync Gmail inbox", icon=":material/refresh:", width="stretch"):
         with st.status("Syncing…", expanded=True) as status:
-            st.write("Fetching unread email")
+            st.write("Fetching latest email")
             records = GmailClient().fetch()
             new = db.insert_many(records)
             chunks = vs.index_records(db.fetch_all()) if vs else 0
@@ -243,7 +293,7 @@ with tab_ask:
         st.session_state.messages = []
 
     if not st.session_state.messages:
-        st.caption("Ask anything about your unread inbox — or tap the mic.")
+        st.caption("Ask anything about your inbox — or tap the mic.")
         sel = st.pills(
             "Suggestions", list(_SUGGESTIONS.keys()), label_visibility="collapsed"
         )
@@ -291,50 +341,60 @@ with tab_ask:
                 st.error(f"Ollama offline — start it at {OLLAMA_HOST}")
                 answer, sources = "", []
             else:
-                with st.status(":shimmer[Searching inbox…]", type="compact") as status:
-                    prev_sources = next(
-                        (
-                            m.get("sources")
-                            for m in reversed(st.session_state.messages[:-1])
-                            if m["role"] == "assistant" and m.get("sources")
-                        ),
-                        [],
-                    )
-                    if prev_sources and _FOLLOWUP_RE.match(pending_prompt.strip()):
-                        sources = prev_sources
-                        how = "same context as before"
-                    elif _SUMMARY_RE.search(pending_prompt):
-                        sources = _cluster_hits(db.fetch_recent(days=2, limit=40))
-                        if not sources:
-                            sources = pipeline.retrieve(pending_prompt)
-                        how = "recent messages, grouped"
-                    else:
-                        query = pending_prompt
-                        prev_user = next(
-                            (
-                                m["content"]
-                                for m in reversed(st.session_state.messages[:-1])
-                                if m["role"] == "user"
-                            ),
-                            "",
-                        )
-                        if prev_user and len(pending_prompt.split()) < 6:
-                            query = f"{prev_user} {pending_prompt}"
-                        sources = pipeline.retrieve(query)
-                        how = "relevant messages"
-                    for hit in sources:
-                        m = hit["metadata"]
-                        st.markdown(f"- :material/mail: **{m['subject']}** — {m['sender']}")
-                    status.update(
-                        label=f"{len(sources)} {how}", state="complete"
-                    )
                 history = [
                     {"role": m["role"], "content": m["content"]}
                     for m in st.session_state.messages[:-1]
                 ]
-                answer = st.write_stream(
-                    pipeline.stream_query(pending_prompt, sources, history=history)
-                )
+                if _is_chat(pending_prompt):
+                    sources = []
+                    answer = st.write_stream(
+                        pipeline.stream_chat(pending_prompt, history=history)
+                    )
+                else:
+                    with st.status(
+                        ":shimmer[Searching inbox…]", type="compact"
+                    ) as status:
+                        prev_sources = next(
+                            (
+                                m.get("sources")
+                                for m in reversed(st.session_state.messages[:-1])
+                                if m["role"] == "assistant" and m.get("sources")
+                            ),
+                            [],
+                        )
+                        if prev_sources and _FOLLOWUP_RE.match(pending_prompt.strip()):
+                            sources = prev_sources
+                            how = "same context as before"
+                        elif _SUMMARY_RE.search(pending_prompt):
+                            sources = _cluster_hits(db.fetch_recent(days=2, limit=40))
+                            if not sources:
+                                sources = pipeline.retrieve(pending_prompt)
+                            how = "recent messages, grouped"
+                        else:
+                            query = pending_prompt
+                            prev_user = next(
+                                (
+                                    m["content"]
+                                    for m in reversed(st.session_state.messages[:-1])
+                                    if m["role"] == "user"
+                                ),
+                                "",
+                            )
+                            if prev_user and len(pending_prompt.split()) < 6:
+                                query = f"{prev_user} {pending_prompt}"
+                            sources = pipeline.retrieve(query)
+                            how = "relevant messages"
+                        for hit in sources:
+                            m = hit["metadata"]
+                            st.markdown(
+                                f"- :material/mail: **{m['subject']}** — {m['sender']}"
+                            )
+                        status.update(
+                            label=f"{len(sources)} {how}", state="complete"
+                        )
+                    answer = st.write_stream(
+                        pipeline.stream_query(pending_prompt, sources, history=history)
+                    )
         st.session_state.messages.append(
             {"role": "assistant", "content": answer, "sources": sources}
         )
@@ -429,6 +489,36 @@ with tab_inbox:
     )
     if not emails:
         st.caption("Inbox empty — hit Sync in the sidebar.")
+    else:
+        _active = st.session_state.get("inbox_urgency_filter") or []
+        with st.container(
+            horizontal=True,
+            vertical_alignment="center",
+            horizontal_alignment="distribute",
+        ):
+            st.caption(f"{len(emails)} messages · sorted by urgency")
+            with st.popover(
+                f"Filter · {len(_active)}" if _active else "Filter",
+                icon=":material/filter_list:",
+            ):
+                urgency_filter = st.pills(
+                    "Show only",
+                    options=["urgent", "action", "fyi"],
+                    selection_mode="multi",
+                    format_func=lambda u: {
+                        "urgent": "Urgent",
+                        "action": "Action",
+                        "fyi": "FYI",
+                    }[u],
+                    label_visibility="collapsed",
+                    key="inbox_urgency_filter",
+                )
+        if urgency_filter:
+            emails = [
+                r
+                for r in emails
+                if amap.get(r["id"], {}).get("urgency") in urgency_filter
+            ]
     for rec in emails:
         a = amap.get(rec["id"])
         badge = _URGENCY_BADGE.get(a["urgency"], "") if a else ""

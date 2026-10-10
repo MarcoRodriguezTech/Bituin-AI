@@ -56,6 +56,33 @@ class RAGPipeline:
         )
         return response["message"]["content"]
 
+    def stream_chat(self, user_prompt: str, history: list[dict] | None = None):
+        """Conversational reply with no email context — for greetings and
+        questions about Bituin itself."""
+        system_prompt = (
+            "You are Bituin, a privacy-focused local email assistant running "
+            f"entirely on the user's own machine. Today's date is {date.today().isoformat()}. "
+            "Chat naturally and keep replies short and friendly. "
+            "You help with their Gmail inbox: answering questions about specific "
+            "emails, summarizing what needs attention, extracting to-dos and "
+            "deadlines, and writing a daily briefing. Everything runs on-device "
+            "— no email data ever leaves this machine. "
+            "You cannot see their emails in this mode; if they ask about "
+            "inbox content, invite them to ask the question directly and "
+            "you'll search their synced mail."
+        )
+        msgs = [{"role": "system", "content": system_prompt}]
+        for m in (history or [])[-6:]:
+            msgs.append({"role": m["role"], "content": m["content"]})
+        msgs.append({"role": "user", "content": user_prompt})
+        for part in self.client.chat(
+            model=self.model_name,
+            messages=msgs,
+            options={"temperature": 0.4, "num_ctx": NUM_CTX},
+            stream=True,
+        ):
+            yield part["message"]["content"]
+
     def stream_query(
         self,
         user_prompt: str,

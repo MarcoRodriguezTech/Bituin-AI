@@ -8,9 +8,48 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config.settings import GMAIL_CREDENTIALS_PATH, GMAIL_SCOPES, GMAIL_TOKEN_PATH, MOCK_GMAIL_PATH
+from config.settings import (
+    GMAIL_CATEGORY,
+    GMAIL_CREDENTIALS_PATH,
+    GMAIL_MAX_RESULTS,
+    GMAIL_QUERY,
+    GMAIL_SCOPES,
+    GMAIL_TOKEN_PATH,
+    MOCK_GMAIL_PATH,
+)
 
 log = logging.getLogger(__name__)
+
+
+_CATEGORY_LABELS = {
+    "primary": "CATEGORY_PERSONAL",
+    "promotions": "CATEGORY_PROMOTIONS",
+    "social": "CATEGORY_SOCIAL",
+    "updates": "CATEGORY_UPDATES",
+    "forums": "CATEGORY_FORUMS",
+}
+
+
+def _sync_params() -> dict:
+    """users().messages().list() params for the messages we ingest.
+
+    Filters by label, not search — the `category:` operator inside `q` is
+    silently ignored by the Gmail API, so scoping to the Primary tab must
+    go through labelIds. GMAIL_QUERY adds an optional extra filter on top.
+    """
+    labels = ["INBOX"]
+    cat = _CATEGORY_LABELS.get(GMAIL_CATEGORY)
+    if cat:
+        labels.append(cat)
+    elif GMAIL_CATEGORY not in ("", "all"):
+        log.warning(
+            "Unknown GMAIL_CATEGORY %r — syncing the whole unread inbox.",
+            GMAIL_CATEGORY,
+        )
+    params = {"labelIds": labels}
+    if GMAIL_QUERY:
+        params["q"] = GMAIL_QUERY
+    return params
 
 
 def _load_mock() -> list[dict]:
@@ -65,14 +104,23 @@ class GmailClient:
 
     def _fetch_live(self) -> list[dict]:
         service = self._get_service()
-        result = (
-            service.users()
-            .messages()
-            .list(userId="me", q="is:unread in:inbox category:primary", maxResults=50)
-            .execute()
-        )
+        stubs: list[dict] = []
+        token = None
+        while len(stubs) < GMAIL_MAX_RESULTS:
+            params = dict(
+                _sync_params(),
+                maxResults=min(100, GMAIL_MAX_RESULTS - len(stubs)),
+            )
+            if token:
+                params["pageToken"] = token
+            result = service.users().messages().list(userId="me", **params).execute()
+            page = result.get("messages", [])
+            stubs.extend(page)
+            token = result.get("nextPageToken")
+            if not token or not page:
+                break
         records = []
-        for stub in result.get("messages", []):
+        for stub in stubs:
             msg = (
                 service.users()
                 .messages()
@@ -90,7 +138,7 @@ class GmailClient:
                     "subject": _header(headers, "Subject") or "(no subject)",
                     "content": msg.get("snippet", ""),
                     "timestamp": datetime.fromtimestamp(ts_ms, tz=timezone.utc).isoformat(),
-                    "is_read": False,
+                    "is_read": "UNREAD" not in msg.get("labelIds", []),
                 }
             )
         return records
