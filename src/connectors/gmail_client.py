@@ -11,6 +11,7 @@ from pathlib import Path
 from config.settings import (
     GMAIL_CATEGORY,
     GMAIL_CREDENTIALS_PATH,
+    GMAIL_MAX_AGE_DAYS,
     GMAIL_MAX_RESULTS,
     GMAIL_QUERY,
     GMAIL_SCOPES,
@@ -22,7 +23,6 @@ log = logging.getLogger(__name__)
 
 
 _CATEGORY_LABELS = {
-    "primary": "CATEGORY_PERSONAL",
     "promotions": "CATEGORY_PROMOTIONS",
     "social": "CATEGORY_SOCIAL",
     "updates": "CATEGORY_UPDATES",
@@ -33,22 +33,30 @@ _CATEGORY_LABELS = {
 def _sync_params() -> dict:
     """users().messages().list() params for the messages we ingest.
 
-    Filters by label, not search — the `category:` operator inside `q` is
-    silently ignored by the Gmail API, so scoping to the Primary tab must
-    go through labelIds. GMAIL_QUERY adds an optional extra filter on top.
+    "primary" mirrors the Primary tab exactly — just INBOX, no category
+    label. Gmail can show mail in the Primary tab regardless of its
+    CATEGORY_* label, so filtering by CATEGORY_PERSONAL misses real
+    page-1 email. Other tabs map to their exact CATEGORY_* label.
+    (The `category:` operator inside `q` is silently ignored by the API,
+    which is why filtering goes through labelIds instead.)
     """
     labels = ["INBOX"]
     cat = _CATEGORY_LABELS.get(GMAIL_CATEGORY)
     if cat:
         labels.append(cat)
-    elif GMAIL_CATEGORY not in ("", "all"):
+    elif GMAIL_CATEGORY not in ("", "all", "primary"):
         log.warning(
-            "Unknown GMAIL_CATEGORY %r — syncing the whole unread inbox.",
+            "Unknown GMAIL_CATEGORY %r — syncing the whole inbox.",
             GMAIL_CATEGORY,
         )
     params = {"labelIds": labels}
+    q_parts = []
+    if GMAIL_MAX_AGE_DAYS > 0:
+        q_parts.append(f"newer_than:{GMAIL_MAX_AGE_DAYS}d")
     if GMAIL_QUERY:
-        params["q"] = GMAIL_QUERY
+        q_parts.append(GMAIL_QUERY)
+    if q_parts:
+        params["q"] = " ".join(q_parts)
     return params
 
 

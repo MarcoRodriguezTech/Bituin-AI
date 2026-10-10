@@ -182,6 +182,29 @@ def _cluster_hits(recs: list[dict]) -> list[dict]:
     return hits
 
 
+def _is_overdue(due) -> bool:
+    """True if an ISO due date is before today."""
+    if not due:
+        return False
+    try:
+        return datetime.date.fromisoformat(str(due)[:10]) < datetime.date.today()
+    except ValueError:
+        return False
+
+
+_URGENT_WINDOW = datetime.timedelta(days=2)
+
+
+def _is_stale(ts) -> bool:
+    """True if an ISO timestamp is older than the urgent-action window —
+    an email marked 'urgent' weeks ago is no longer time-critical."""
+    try:
+        dt = datetime.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return datetime.datetime.now(dt.tzinfo) - dt > _URGENT_WINDOW
+
+
 # ---------- Status helpers ----------
 def ollama_alive() -> bool:
     try:
@@ -238,6 +261,26 @@ voice = get_voice()
 voice_ok = not isinstance(voice, Exception)
 oll_ok = ollama_alive()
 
+amap = db.fetch_analysis_map()
+tasks = db.fetch_tasks()
+
+# Urgency decays: a past deadline or an "urgent" email received beyond the
+# ~48h window is no longer time-critical — demote to action unless a task
+# still carries a live (today/future) due date.
+_due_by_email: dict[str, list] = {}
+for _t in tasks:
+    if _t["due_date"]:
+        _due_by_email.setdefault(_t["email_id"], []).append(_t["due_date"])
+_recv_at = {r["id"]: r["timestamp"] for r in db.fetch_all()}
+for _eid, _a in amap.items():
+    if _a.get("urgency") != "urgent":
+        continue
+    _dd = _due_by_email.get(_eid, [])
+    if any(not _is_overdue(d) for d in _dd):
+        continue
+    if _dd or _is_stale(_recv_at.get(_eid)):
+        _a["urgency"] = "action"
+
 # ---------- Sidebar ----------
 with st.sidebar:
     st.header("Sync", icon=":material/sync:")
@@ -261,11 +304,10 @@ with st.sidebar:
             status.update(label="Sync complete", state="complete", expanded=False)
 
     st.divider()
-    counts = db.urgency_counts()
     c1, c2 = st.columns(2)
     c1.metric("Messages", db.count())
-    c2.metric("Urgent", counts.get("urgent", 0))
-    st.metric("Open tasks", len(db.fetch_tasks(include_done=False)))
+    c2.metric("Urgent", sum(1 for a in amap.values() if a["urgency"] == "urgent"))
+    st.metric("Open tasks", sum(1 for t in tasks if not t["done"]))
 
     st.divider()
     st.subheader("System", icon=":material/memory:")
@@ -277,7 +319,6 @@ with st.sidebar:
     )
 
 # ---------- Main tabs ----------
-amap = db.fetch_analysis_map()
 tab_ask, tab_todo, tab_inbox, tab_digest = st.tabs(
     [
         ":material/chat: Ask",
@@ -401,68 +442,42 @@ with tab_ask:
         st.rerun()
 
 # ---------- To-do ----------
-with tab_todo:
-    tasks = db.fetch_tasks()
-    st.caption(
-        "The ✕ button only removes a task from this list — it does not delete "
-        "or modify the email in your inbox."
-    )
-    if tasks:
+def _render_task(t: dict, select_mode: bool = False):
+    due = ""
+    if t["due_date"]:
+        try:
+            days = (
+                datetime.date.fromisoformat(str(t["due_date"])[:10])
+                - datetime.date.today()
+            ).days
+            due = f"  :gray[· due {t['due_date'][:10]}]"
+            if days < 0:
+                due += " :red[overdue]"
+            elif days == 0:
+                due += " :orange[today]"
+            else:
+                due += f" :gray[in {days}d]"
+        except ValueError:
+            due = f"  :gray[· due {t['due_date']}]"
+    with st.container(border=True):
         with st.container(
             horizontal=True,
             vertical_alignment="center",
             horizontal_alignment="distribute",
         ):
-            st.caption(
-                f"{len(db.fetch_tasks(include_done=False))} open · extracted from your email"
-            )
-            with st.popover(
-                "Remove multiple", icon=":material/delete_sweep:"
-            ):
-                remove_ids = st.multiselect(
-                    "Select tasks to remove",
-                    options=[t["id"] for t in tasks],
-                    format_func=lambda i: next(
-                        (t["description"] for t in tasks if t["id"] == i), i
-                    )[:80],
-                    label_visibility="collapsed",
-                    placeholder="Pick tasks…",
+            if select_mode:
+                # The card's tick marks it for removal instead of done
+                sel = st.session_state.setdefault("todo_remove_sel", set())
+                ticked = st.checkbox(
+                    f"**{t['description']}**{due}",
+                    value=t["id"] in sel,
+                    key=f"sel-{t['id']}",
                 )
-                if st.button(
-                    f"Remove {len(remove_ids)} selected"
-                    if remove_ids
-                    else "Remove selected",
-                    icon=":material/delete:",
-                    disabled=not remove_ids,
-                ):
-                    for tid in remove_ids:
-                        db.delete_task(tid)
-                    st.rerun()
-    else:
-        st.caption("No tasks yet — sync your inbox and Bituin extracts the action items.")
-    for t in tasks:
-        due = ""
-        if t["due_date"]:
-            try:
-                days = (
-                    datetime.date.fromisoformat(str(t["due_date"])[:10])
-                    - datetime.date.today()
-                ).days
-                due = f"  :gray[· due {t['due_date'][:10]}]"
-                if days < 0:
-                    due += " :red[overdue]"
-                elif days == 0:
-                    due += " :orange[today]"
+                if ticked:
+                    sel.add(t["id"])
                 else:
-                    due += f" :gray[in {days}d]"
-            except ValueError:
-                due = f"  :gray[· due {t['due_date']}]"
-        with st.container(border=True):
-            with st.container(
-                horizontal=True,
-                vertical_alignment="center",
-                horizontal_alignment="distribute",
-            ):
+                    sel.discard(t["id"])
+            else:
                 checked = st.checkbox(
                     f"**{t['description']}**{due}",
                     value=t["done"],
@@ -479,7 +494,72 @@ with tab_todo:
                 if checked != t["done"]:
                     db.set_task_done(t["id"], checked)
                     st.rerun()
-            st.caption(f":material/mail: {t['subject']} — {t['sender']}")
+        st.caption(f":material/mail: {t['subject']} — {t['sender']}")
+
+
+with tab_todo:
+    st.caption(
+        "Removing a task only takes it off this list — it does not delete "
+        "or modify the email in your inbox."
+    )
+    removing = st.session_state.get("todo_removing", False)
+    if tasks:
+        with st.container(
+            horizontal=True,
+            vertical_alignment="center",
+            horizontal_alignment="distribute",
+        ):
+            if removing:
+                sel = st.session_state.setdefault("todo_remove_sel", set())
+                st.caption(f"Tick tasks to remove — {len(sel)} selected")
+                with st.container(
+                    horizontal=True, vertical_alignment="center"
+                ):
+                    if st.button(
+                        f"Remove {len(sel)} selected"
+                        if sel
+                        else "Remove selected",
+                        icon=":material/delete:",
+                        type="primary",
+                        disabled=not sel,
+                    ):
+                        for tid in sel:
+                            db.delete_task(tid)
+                        st.session_state.todo_removing = False
+                        st.session_state.todo_remove_sel = set()
+                        st.rerun()
+                    if st.button(
+                        "Cancel", icon=":material/close:", type="tertiary"
+                    ):
+                        st.session_state.todo_removing = False
+                        st.session_state.todo_remove_sel = set()
+                        st.rerun()
+            else:
+                st.caption(
+                    f"{sum(1 for t in tasks if not t['done'])} open · extracted from your email"
+                )
+                if st.button(
+                    "Remove", icon=":material/delete_sweep:", type="tertiary"
+                ):
+                    st.session_state.todo_removing = True
+                    st.session_state.todo_remove_sel = set()
+                    st.rerun()
+    else:
+        st.caption("No tasks yet — sync your inbox and Bituin extracts the action items.")
+    _open = [t for t in tasks if not t["done"]]
+    _active = [t for t in _open if not _is_overdue(t["due_date"])]
+    _missed = [t for t in _open if _is_overdue(t["due_date"])]
+    _done = [t for t in tasks if t["done"]]
+    for t in _active:
+        _render_task(t, select_mode=removing)
+    if _missed:
+        with st.expander(
+            f"Missed · {len(_missed)} overdue", icon=":material/event_busy:"
+        ):
+            for t in _missed:
+                _render_task(t, select_mode=removing)
+    for t in _done:
+        _render_task(t, select_mode=removing)
 
 # ---------- Inbox ----------
 with tab_inbox:

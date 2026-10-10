@@ -49,6 +49,8 @@ GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 GMAIL_CATEGORY = os.getenv("GMAIL_CATEGORY", "primary").strip().lower()
 # How many of the latest matching messages to pull per sync (read or unread)
 GMAIL_MAX_RESULTS = int(os.getenv("GMAIL_MAX_RESULTS", "100"))
+# Only sync messages received within this many days (0 = no age limit)
+GMAIL_MAX_AGE_DAYS = int(os.getenv("GMAIL_MAX_AGE_DAYS", "0"))
 # Extra Gmail search filter on top, e.g. "-from:notifications@github.com"
 # or "is:unread" to go back to unread-only
 # (note: the category: operator does not work in q — use GMAIL_CATEGORY)
